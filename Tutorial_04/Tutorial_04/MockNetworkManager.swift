@@ -8,6 +8,9 @@
 import Foundation
 import CoreData
 
+// Usage: Extend AutoFetchParentClass and put in the custom coredata object as the type.
+// I.E Replace NetworkRequest with BluetoothRequest or WorkQueueRequest.
+// Note: Be sure to create the object in coredata before you run it.
 class MockNetworkManager: AutoFetchParentClass<NetworkRequest> {
   static let shared = MockNetworkManager()
   var curNetworkRequest: NetworkRequest?

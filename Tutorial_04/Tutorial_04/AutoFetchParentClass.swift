@@ -11,19 +11,21 @@ import Foundation
 open class AutoFetchParentClass<T: NSManagedObject>: NSObject, NSFetchedResultsControllerDelegate {
   private let fetchController: NSFetchedResultsController<T>
   let persistenceController: PersistenceController
+  // Only do one element on the queue at once.
   var semaphore = DispatchSemaphore(value: 1)
 
   var queueContext: NSManagedObjectContext {
     return persistenceController.queueContext
   }
   
+  // Usage: sortKey is a var inside the managed object specified that you want to sort by.
   init(persistenceController: PersistenceController, sortKey: String? = nil, order: AutoFetchOrderFormat = .unspecified) {
     
     self.persistenceController = persistenceController
 
+    // Setup fetch that will auto fetch when the type is changed.
     let typeName = String(describing: T.self)
     let fetchRequest = NSFetchRequest<T>(entityName: typeName)
-
     if let unwrappedSortKey = sortKey {
       var ascending = true
       if order == .descending {
@@ -43,7 +45,6 @@ open class AutoFetchParentClass<T: NSManagedObject>: NSObject, NSFetchedResultsC
         print("initfetch: \(curVal)")
       }
     } catch {
-      //self.dbController.logger?.error("LocalDB wrapper: init: \(error)")
       print("errror doing init fetch")
     }
 
@@ -58,11 +59,7 @@ open class AutoFetchParentClass<T: NSManagedObject>: NSObject, NSFetchedResultsC
     self.doWork(queuedValues: queuedValues)
     semaphore.signal()
 
-    // BUG: sometimes get save recursive call and update to main thread doesn't happen till the end :(
-    // Can't call save recursively in this function.  Update main thread on another thread.
-    DispatchQueue.global(qos: .background).async { [weak self] in
-      self?.save()
-    }
+    self.save()
   }
   
   public func removeFromQueue(_ item: T) {
@@ -70,10 +67,13 @@ open class AutoFetchParentClass<T: NSManagedObject>: NSObject, NSFetchedResultsC
   }
   
   public func save() {
-    do {
-      try queueContext.save()
-    } catch {
-        print("Error: there was a problem saving to disk \(error)")
+    queueContext.perform {[weak self] in
+      guard let self = self else { return }
+      do {
+        try self.queueContext.save()
+      } catch {
+          print("Error: there was a problem saving to disk \(error)")
+      }
     }
   }
   
