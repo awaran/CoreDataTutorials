@@ -67,12 +67,14 @@ open class AutoFetchParentClass<T: NSManagedObject>: NSObject, NSFetchedResultsC
   }
   
   public func save() {
-    queueContext.perform {[weak self] in
-      guard let self = self else { return }
-      do {
-        try self.queueContext.save()
-      } catch {
-          print("Error: there was a problem saving to disk \(error)")
+    if queueContext.hasChanges {
+      queueContext.perform {[weak self] in
+        guard let self = self else { return }
+        do {
+          try self.queueContext.save()
+        } catch {
+            print("Error: there was a problem saving to disk \(error)")
+        }
       }
     }
   }
